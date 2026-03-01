@@ -6,7 +6,7 @@ PW-41: Pipeline ETL CAGED: download → validação → transformação → carg
 from prefect import flow, get_run_logger
 from prefect.schedules import CronSchedule
 
-from tasks.download import download_caged
+from tasks.download import download_caged  # noqa: F401 (imported for flow reference)
 from tasks.validate import validate_caged_schema
 from tasks.transform import transform_caged
 from tasks.load import load_caged_to_postgres

@@ -64,6 +64,25 @@ CREATE TABLE IF NOT EXISTS api_keys (
   created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 
+-- Benchmarking de Turnover por Setor (PW-49 — Fase 4, pré-calculado via dbt)
+CREATE TABLE IF NOT EXISTS mart_turnover_setorial (
+  id              SERIAL        PRIMARY KEY,
+  cnae2           CHAR(2)       NOT NULL,
+  uf              CHAR(2),                   -- NULL = nacional
+  porte           SMALLINT,                  -- NULL = todos os portes
+  ano_base        SMALLINT      NOT NULL,    -- ano da RAIS usada como denominador
+  n_empresas      INTEGER       NOT NULL,    -- base de cálculo (mínimo 30)
+  turnover_p25    NUMERIC(6,2),
+  turnover_p50    NUMERIC(6,2),              -- mediana
+  turnover_p75    NUMERIC(6,2),
+  turnover_p90    NUMERIC(6,2),
+  atualizado_em   TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  UNIQUE (cnae2, uf, porte, ano_base)
+);
+
+-- Index para lookups rápidos de benchmark
+CREATE INDEX IF NOT EXISTS idx_turnover_lookup ON mart_turnover_setorial (cnae2, uf, porte, ano_base);
+
 -- Tabelas de referência (CBO, CNAE)
 CREATE TABLE IF NOT EXISTS ref_cbo (
   cbo6              CHAR(6)       PRIMARY KEY,

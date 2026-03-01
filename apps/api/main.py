@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import caged, health
+from routers import caged, health, turnover
 
 app = FastAPI(
     title="Radar Trabalhista API",
@@ -21,3 +21,4 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(caged.router, prefix="/v1/caged", tags=["CAGED"])
+app.include_router(turnover.router, prefix="/v1/turnover", tags=["Turnover"])
