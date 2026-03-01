@@ -1,73 +1,98 @@
 "use client"
-import { useRouter, useSearchParams, usePathname } from "next/navigation"
-import { useCallback } from "react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Button } from "@/components/ui/button"
-import { X } from "lucide-react"
-import { CNAE_OPTIONS, UF_OPTIONS } from "@/lib/types"
 import { useFiltersStore } from "@/store/filters"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
+import { CNAE_OPTIONS, UF_OPTIONS } from "@/lib/types"
+import { Filter, X } from "lucide-react"
 
 export function FilterBar() {
   const { filters, setFilter, resetFilters } = useFiltersStore()
   const router = useRouter()
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
 
-  const updateURL = useCallback((key: string, value: string | undefined) => {
-    const params = new URLSearchParams(searchParams.toString())
-    if (value) { params.set(key, value) } else { params.delete(key) }
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
-  }, [router, pathname, searchParams])
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (filters.cnae2) {
+      params.set("cnae2", filters.cnae2)
+    } else {
+      params.delete("cnae2")
+    }
+    if (filters.uf) {
+      params.set("uf", filters.uf)
+    } else {
+      params.delete("uf")
+    }
+    if (filters.meses !== 12) {
+      params.set("meses", String(filters.meses))
+    } else {
+      params.delete("meses")
+    }
+    router.replace(`?${params.toString()}`, { scroll: false })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, router])
+
+  const hasActiveFilters =
+    filters.cnae2 || filters.uf || filters.meses !== 12
+
+  function clearFilters() {
+    resetFilters()
+  }
 
   return (
-    <div className="flex flex-wrap items-center gap-3 p-4 bg-card border rounded-lg">
-      <Select
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+        <Filter className="h-3.5 w-3.5" />
+        <span>Filtros</span>
+      </div>
+
+      <select
         value={filters.cnae2 ?? ""}
-        onValueChange={(v) => { setFilter("cnae2", v || undefined); updateURL("cnae2", v || undefined) }}
+        onChange={(e) => setFilter("cnae2", e.target.value || undefined)}
+        className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-50"
+        aria-label="Filtrar por setor CNAE"
       >
-        <SelectTrigger className="w-[200px]" aria-label="Filtrar por setor CNAE">
-          <SelectValue placeholder="Setor (CNAE)" />
-        </SelectTrigger>
-        <SelectContent>
-          {CNAE_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <option value="">Todos os setores</option>
+        {CNAE_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
 
-      <Select
+      <select
         value={filters.uf ?? ""}
-        onValueChange={(v) => { setFilter("uf", v || undefined); updateURL("uf", v || undefined) }}
+        onChange={(e) => setFilter("uf", e.target.value || undefined)}
+        className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-50"
+        aria-label="Filtrar por estado UF"
       >
-        <SelectTrigger className="w-[160px]" aria-label="Filtrar por estado UF">
-          <SelectValue placeholder="Estado (UF)" />
-        </SelectTrigger>
-        <SelectContent>
-          {UF_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <option value="">Todos os estados</option>
+        {UF_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
 
-      <Select
-        value={String(filters.meses)}
-        onValueChange={(v) => { setFilter("meses", Number(v)); updateURL("meses", v) }}
+      <select
+        value={filters.meses}
+        onChange={(e) => setFilter("meses", Number(e.target.value))}
+        className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-50"
+        aria-label="Filtrar por período"
       >
-        <SelectTrigger className="w-[140px]" aria-label="Filtrar por período">
-          <SelectValue placeholder="Período" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="3">Últimos 3 meses</SelectItem>
-          <SelectItem value="12">Últimos 12 meses</SelectItem>
-          <SelectItem value="24">Últimos 24 meses</SelectItem>
-          <SelectItem value="60">Últimos 60 meses</SelectItem>
-        </SelectContent>
-      </Select>
+        <option value={3}>Últimos 3 meses</option>
+        <option value={6}>Últimos 6 meses</option>
+        <option value={12}>Últimos 12 meses</option>
+        <option value={24}>Últimos 24 meses</option>
+      </select>
 
-      {(filters.cnae2 || filters.uf) && (
-        <Button variant="ghost" size="sm" onClick={() => { resetFilters(); router.replace(pathname) }} aria-label="Limpar todos os filtros">
-          <X className="h-4 w-4 mr-1" /> Limpar
-        </Button>
+      {hasActiveFilters && (
+        <button
+          onClick={clearFilters}
+          className="flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200 transition-colors"
+          aria-label="Limpar todos os filtros"
+        >
+          <X className="h-3 w-3" />
+          Limpar
+        </button>
       )}
     </div>
   )

@@ -1,6 +1,4 @@
 "use client"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { TrendingUp, TrendingDown, Minus } from "lucide-react"
 import { LineChart, Line, ResponsiveContainer } from "recharts"
@@ -15,48 +13,105 @@ interface KPICardProps {
   isLoading?: boolean
   prefix?: string
   suffix?: string
+  description?: string
 }
 
-export function KPICard({ title, value, delta, trend = "neutral", sparklineData, isLoading, prefix, suffix }: KPICardProps) {
-  if (isLoading) return (
-    <Card>
-      <CardHeader className="pb-2"><Skeleton className="h-4 w-24" /></CardHeader>
-      <CardContent><Skeleton className="h-8 w-32 mb-2" /><Skeleton className="h-4 w-16" /></CardContent>
-    </Card>
-  )
+export function KPICard({
+  title,
+  value,
+  delta,
+  trend = "neutral",
+  sparklineData,
+  isLoading,
+  prefix,
+  suffix,
+  description,
+}: KPICardProps) {
+  if (isLoading)
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
+        <Skeleton className="h-3.5 w-24 mb-3" />
+        <Skeleton className="h-8 w-32 mb-1.5" />
+        <Skeleton className="h-3 w-16 mb-4" />
+        <Skeleton className="h-10 w-full" />
+      </div>
+    )
 
-  const TrendIcon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus
-  const trendColor = trend === "up" ? "text-green-600" : trend === "down" ? "text-red-600" : "text-gray-500"
-  const badgeVariant = trend === "up" ? "default" : trend === "down" ? "destructive" : "secondary"
+  const deltaConfig = {
+    up: {
+      icon: TrendingUp,
+      bg: "bg-emerald-50",
+      text: "text-emerald-700",
+      sparkColor: "#059669",
+    },
+    down: {
+      icon: TrendingDown,
+      bg: "bg-red-50",
+      text: "text-red-700",
+      sparkColor: "#DC2626",
+    },
+    neutral: {
+      icon: Minus,
+      bg: "bg-slate-100",
+      text: "text-slate-500",
+      sparkColor: "#94A3B8",
+    },
+  }[trend]
+
+  const formattedValue =
+    typeof value === "number"
+      ? value.toLocaleString(
+          "pt-BR",
+          prefix === "R$ "
+            ? { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+            : {}
+        )
+      : value
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">
-          {prefix}{typeof value === "number" ? value.toLocaleString("pt-BR") : value}{suffix}
-        </div>
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover">
+      <div className="flex items-start justify-between">
+        <p className="text-sm font-medium text-slate-500">{title}</p>
         {delta !== undefined && (
-          <div className="flex items-center gap-1 mt-1">
-            <TrendIcon className={cn("h-4 w-4", trendColor)} />
-            <Badge variant={badgeVariant} className="text-xs">
-              {delta > 0 ? "+" : ""}{delta.toFixed(1)}%
-            </Badge>
-          </div>
+          <span
+            className={cn(
+              "flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold",
+              deltaConfig.bg,
+              deltaConfig.text
+            )}
+          >
+            <deltaConfig.icon className="h-3 w-3" />
+            {Math.abs(delta).toFixed(1)}%
+          </span>
         )}
-        {sparklineData && sparklineData.length > 0 && (
-          <div className="h-10 mt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={sparklineData.map((v, i) => ({ v, i }))}>
-                <Line type="monotone" dataKey="v" dot={false} strokeWidth={1.5}
-                  stroke={trend === "up" ? "#16a34a" : trend === "down" ? "#dc2626" : "#6b7280"} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+      </div>
+
+      <div className="mt-2">
+        <p className="text-3xl font-bold tracking-tight text-slate-900">
+          {prefix}
+          {formattedValue}
+          {suffix}
+        </p>
+        {description && (
+          <p className="mt-0.5 text-xs text-slate-400">{description}</p>
         )}
-      </CardContent>
-    </Card>
+      </div>
+
+      {sparklineData && sparklineData.length > 0 && (
+        <div className="mt-4 h-12">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={sparklineData.map((v, i) => ({ v, i }))}>
+              <Line
+                type="monotone"
+                dataKey="v"
+                dot={false}
+                strokeWidth={2}
+                stroke={deltaConfig.sparkColor}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
   )
 }
