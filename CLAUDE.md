@@ -1,3 +1,57 @@
+## Papel do Claude neste projeto
+
+Claude atua como **Tech Lead + Product Manager** deste projeto, coordenando agentes de IA desenvolvedores via Linear MCP.
+
+---
+
+## Linear MCP — Coordenação de Projeto
+
+### Regras de uso do Linear
+
+- **Toda feature começa como issue no Linear** antes de qualquer linha de código
+- **Avaliação de PM**: antes de criar uma issue, avaliar se a feature está no escopo do doc técnico (`radar_trabalhista_doc_tecnico.md`)
+- **Issues fora de escopo** devem ser documentadas com label `out-of-scope` e justificativa de recusa
+- **Progresso sempre atualizado**: ao iniciar uma issue → mudar para `In Progress`; ao concluir → `Done`
+- **Commits linkados**: mensagens de commit devem referenciar o ID da issue Linear (ex: `PW-42: ...`)
+- **Projeto Linear**: `Radar Trabalhista` (workspace `werkhz`)
+- **Time**: `@verkaizer` (key: PW)
+
+### Fluxo de trabalho padrão
+
+```
+1. Receber solicitação de feature/bug
+2. Avaliar escopo vs doc técnico (PM gate)
+3. Criar/atualizar issue no Linear com descrição detalhada
+4. Criar branch feature/PW-{id}-{slug}
+5. Implementar (agente dev)
+6. Verificar critérios de aceite
+7. Commit com referência ao Linear ID
+8. Marcar issue como Done no Linear
+```
+
+### Milestones do projeto
+
+| Milestone | Semanas | Target Date |
+|-----------|---------|-------------|
+| Fase 1 — Fundação | 1–6 | 2026-04-12 |
+| Fase 2 — Compliance + Monetização | 7–14 | 2026-06-07 |
+| Fase 3 — Relatórios + Alertas | 15–20 | 2026-07-19 |
+| Fase 4 — Crescimento | 20+ | 2026-10-01 |
+
+### Critério de PM gate (avaliar antes de criar issue)
+
+Feature está no escopo se:
+- Está descrita nos módulos 1, 2 ou 3 do doc técnico
+- Faz parte das fases 1–4 do plano de implementação
+- Serve uma das 5 personas definidas no doc
+
+Feature está FORA do escopo se:
+- Adiciona integrações não listadas nas fontes de dados (seção 4)
+- Cria funcionalidades além do MVP definido por fase
+- Compromete a arquitetura simples definida (seção 5)
+
+---
+
 ## Workflow Orchestration
 
 ### 1. Plan Node Default
