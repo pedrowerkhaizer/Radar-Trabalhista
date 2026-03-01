@@ -58,3 +58,7 @@ dbt/logs/
 *.pem
 *.key
 secrets/
+
+# Git worktrees
+.worktrees/
+.worktrees
