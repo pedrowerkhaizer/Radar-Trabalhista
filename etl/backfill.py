@@ -24,6 +24,11 @@ if _env_file.exists():
 else:
     print(f"[backfill] Aviso: .env não encontrado em {_env_file}")
 
+# Desabilita conexão ao servidor Prefect — modo efêmero (local, sem servidor)
+# Deve ser feito ANTES de qualquer import do prefect
+import os as _os  # noqa: E402
+_os.environ["PREFECT_API_URL"] = ""
+
 
 def _default_competencias(n: int = 3) -> list[str]:
     """Retorna os últimos N meses no formato YYYY-MM."""
