@@ -50,13 +50,18 @@ def transform_caged(csv_path: Path, competencia: str | None = None) -> Path:
 
     logger.info(f"Transformando CAGED com DuckDB: {csv_path}")
 
+    # Validate csv_path before SQL interpolation to prevent path traversal
+    csv_str = str(csv_path.resolve())
+    if any(c in csv_str for c in ("'", ";", "\x00", "\n", "\r")):
+        raise ValueError(f"Caminho CSV contém caracteres inválidos: {csv_path}")
+
     conn = duckdb.connect()
     try:
         # DuckDB lê o CSV lazy via VIEW — não carrega tudo em memória de uma vez
         conn.execute(f"""
             CREATE VIEW caged AS
             SELECT * FROM read_csv_auto(
-                '{csv_path}',
+                '{csv_str}',
                 sep='{CAGED_SEPARATOR}',
                 header=true,
                 encoding='latin-1',

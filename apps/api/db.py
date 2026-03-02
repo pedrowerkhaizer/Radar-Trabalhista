@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+import asyncio
 
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -32,10 +33,13 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 redis_client: Redis | None = None
+_redis_lock = asyncio.Lock()
 
 
 async def get_redis() -> Redis:
     global redis_client
     if redis_client is None:
-        redis_client = Redis.from_url(settings.redis_url, decode_responses=True)
+        async with _redis_lock:
+            if redis_client is None:
+                redis_client = Redis.from_url(settings.redis_url, decode_responses=True)
     return redis_client

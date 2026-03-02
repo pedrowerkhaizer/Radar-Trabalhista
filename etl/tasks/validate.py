@@ -101,6 +101,12 @@ def validate_caged_schema(csv_path: Path) -> Path:
             f"Avisos de schema ({len(e.failure_cases)} casos): "
             f"pipeline continua pois strict=False. Revisar se persistir."
         )
+    except pa.errors.SchemaError as e:
+        # Schema error não-lazy (single error) — mesmo tratamento
+        logger.warning(
+            f"Aviso de schema: {e}. "
+            f"Pipeline continua pois strict=False. Revisar se persistir."
+        )
 
     return csv_path
 

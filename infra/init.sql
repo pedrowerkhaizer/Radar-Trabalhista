@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS fato_caged (
   desligamentos     INTEGER       NOT NULL DEFAULT 0,
   salario_medio     NUMERIC(10,2),
   PRIMARY KEY (competencia, cnae2, cbo6, cod_municipio)
-) PARTITION BY RANGE (competencia);
+);
 
 -- Convert to hypertable for TimescaleDB optimizations
 SELECT create_hypertable('fato_caged', 'competencia', if_not_exists => TRUE);

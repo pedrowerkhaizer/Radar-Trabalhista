@@ -24,7 +24,8 @@ class CacheService:
         await self._redis.setex(key, ttl, json.dumps(value, default=str))
 
     async def delete_pattern(self, pattern: str) -> int:
-        keys = await self._redis.keys(pattern)
-        if not keys:
-            return 0
-        return await self._redis.delete(*keys)
+        deleted = 0
+        async for key in self._redis.scan_iter(pattern):
+            await self._redis.delete(key)
+            deleted += 1
+        return deleted

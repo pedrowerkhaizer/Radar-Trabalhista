@@ -8,6 +8,7 @@ import json
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
+from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,11 +24,28 @@ from services.cache import CacheService
 router = APIRouter()
 settings = get_settings()
 
+# Mapeamento sigla UF → código IBGE numérico (como armazenado no banco após ETL)
+_UF_IBGE: dict[str, str] = {
+    "AC": "12", "AL": "27", "AM": "13", "AP": "16", "BA": "29",
+    "CE": "23", "DF": "53", "ES": "32", "GO": "52", "MA": "21",
+    "MG": "31", "MS": "50", "MT": "51", "PA": "15", "PB": "25",
+    "PE": "26", "PI": "22", "PR": "41", "RJ": "33", "RN": "24",
+    "RO": "11", "RR": "14", "RS": "43", "SC": "42", "SE": "28",
+    "SP": "35", "TO": "17",
+}
+
 
 def _make_cache_key(prefix: str, **kwargs: object) -> str:
     content = json.dumps(kwargs, sort_keys=True, default=str)
     hash_ = hashlib.md5(content.encode()).hexdigest()[:8]
     return f"{prefix}:{hash_}"
+
+
+def _uf_to_ibge(uf: Optional[str]) -> Optional[str]:
+    """Converte sigla UF (ex: 'SP') para código IBGE numérico (ex: '35')."""
+    if uf is None:
+        return None
+    return _UF_IBGE.get(uf.upper())
 
 
 @router.get("/summary", response_model=CAGEDSummaryResponse)
@@ -36,7 +54,7 @@ async def get_caged_summary(
         None, min_length=2, max_length=2, description="CNAE 2 dígitos"
     ),
     uf: Optional[str] = Query(
-        None, min_length=2, max_length=2, description="Sigla UF"
+        None, min_length=2, max_length=2, description="Sigla UF (ex: SP)"
     ),
     periodo_inicio: Optional[str] = Query(
         None, pattern=r"^\d{4}-\d{2}$", description="YYYY-MM"
@@ -45,7 +63,7 @@ async def get_caged_summary(
         None, pattern=r"^\d{4}-\d{2}$", description="YYYY-MM"
     ),
     db: AsyncSession = Depends(get_db),
-    redis=Depends(get_redis),
+    redis: Redis = Depends(get_redis),
 ) -> CAGEDSummaryResponse:
     """
     Resumo de admissões, demissões e saldo por competência.
@@ -53,10 +71,12 @@ async def get_caged_summary(
     Retorna dados agregados mensais com filtros opcionais.
     Plano: Free. Cache: 1h.
     """
+    uf_ibge = _uf_to_ibge(uf)
+
     cache_key = _make_cache_key(
         "caged:summary",
         cnae2=cnae2,
-        uf=uf,
+        uf=uf_ibge,
         inicio=periodo_inicio,
         fim=periodo_fim,
     )
@@ -66,26 +86,7 @@ async def get_caged_summary(
     if cached:
         return CAGEDSummaryResponse(**cached)
 
-    # Construir query com parâmetros nomeados — sem string interpolation
-    conditions: list[str] = []
-    params: dict[str, object] = {}
-
-    if cnae2:
-        conditions.append("cnae2 = :cnae2")
-        params["cnae2"] = cnae2
-    if uf:
-        conditions.append("uf = :uf")
-        params["uf"] = uf.upper()
-    if periodo_inicio:
-        conditions.append("competencia >= :inicio::date")
-        params["inicio"] = f"{periodo_inicio}-01"
-    if periodo_fim:
-        conditions.append("competencia <= :fim::date")
-        params["fim"] = f"{periodo_fim}-01"
-
-    where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
-
-    sql = text(f"""
+    sql = text("""
         SELECT
             TO_CHAR(competencia, 'YYYY-MM') AS competencia,
             SUM(admissoes)::int              AS admissoes,
@@ -93,11 +94,21 @@ async def get_caged_summary(
             SUM(admissoes - desligamentos)::int AS saldo,
             ROUND(AVG(salario_medio)::numeric, 2) AS salario_medio
         FROM fato_caged
-        {where_clause}
+        WHERE (:cnae2 IS NULL OR cnae2 = :cnae2)
+          AND (:uf IS NULL OR uf = :uf)
+          AND (:inicio IS NULL OR competencia >= :inicio::date)
+          AND (:fim IS NULL OR competencia <= :fim::date)
         GROUP BY competencia
         ORDER BY competencia DESC
         LIMIT 60
     """)
+
+    params = {
+        "cnae2": cnae2,
+        "uf": uf_ibge,
+        "inicio": f"{periodo_inicio}-01" if periodo_inicio else None,
+        "fim": f"{periodo_fim}-01" if periodo_fim else None,
+    }
 
     result = await db.execute(sql, params)
     rows = result.mappings().all()
@@ -129,33 +140,18 @@ async def get_caged_series(
     uf: Optional[str] = Query(None, min_length=2, max_length=2),
     meses: int = Query(12, ge=1, le=60),
     db: AsyncSession = Depends(get_db),
-    redis=Depends(get_redis),
+    redis: Redis = Depends(get_redis),
 ) -> CAGEDSeriesResponse:
     """Série histórica mensal. Plano: Free. Cache: 1h."""
-    cache_key = _make_cache_key("caged:series", cnae2=cnae2, uf=uf, meses=meses)
+    uf_ibge = _uf_to_ibge(uf)
+    cache_key = _make_cache_key("caged:series", cnae2=cnae2, uf=uf_ibge, meses=meses)
     cache_svc = CacheService(redis)
 
     cached = await cache_svc.get(cache_key)
     if cached:
         return CAGEDSeriesResponse(**cached)
 
-    # Nota: :meses não pode ser usado diretamente dentro de INTERVAL em PostgreSQL
-    # com asyncpg — usamos cast explícito via parâmetro inteiro
-    conditions: list[str] = [
-        "competencia >= (CURRENT_DATE - (:meses * INTERVAL '1 month'))::date"
-    ]
-    params: dict[str, object] = {"meses": meses}
-
-    if cnae2:
-        conditions.append("cnae2 = :cnae2")
-        params["cnae2"] = cnae2
-    if uf:
-        conditions.append("uf = :uf")
-        params["uf"] = uf.upper()
-
-    where = "WHERE " + " AND ".join(conditions)
-
-    sql = text(f"""
+    sql = text("""
         SELECT
             TO_CHAR(competencia, 'YYYY-MM') AS competencia,
             SUM(admissoes)::int              AS admissoes,
@@ -163,10 +159,18 @@ async def get_caged_series(
             SUM(admissoes - desligamentos)::int AS saldo,
             ROUND(AVG(salario_medio)::numeric, 2) AS salario_medio
         FROM fato_caged
-        {where}
+        WHERE competencia >= (CURRENT_DATE - (:meses * INTERVAL '1 month'))::date
+          AND (:cnae2 IS NULL OR cnae2 = :cnae2)
+          AND (:uf IS NULL OR uf = :uf)
         GROUP BY competencia
         ORDER BY competencia ASC
     """)
+
+    params = {
+        "meses": meses,
+        "cnae2": cnae2,
+        "uf": uf_ibge,
+    }
 
     result = await db.execute(sql, params)
     rows = result.mappings().all()

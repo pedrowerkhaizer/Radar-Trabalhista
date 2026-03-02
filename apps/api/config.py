@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import List
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -17,6 +18,9 @@ class Settings(BaseSettings):
     # App
     api_env: str = "development"
     api_port: int = 8000
+
+    # CORS
+    cors_origins: List[str] = ["http://localhost:3000"]
 
     # Cache TTLs
     cache_ttl_caged: int = 3600  # 1h

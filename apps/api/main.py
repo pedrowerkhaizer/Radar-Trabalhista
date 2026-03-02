@@ -4,12 +4,17 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from config import get_settings
 from routers import caged, health, turnover
+
+settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    # startup — nothing required; connections are lazy
+    # startup — warm up Redis singleton to avoid cold-start race condition
+    from db import get_redis
+    await get_redis()
     yield
     # shutdown — dispose DB pool and close Redis
     try:
@@ -33,10 +38,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 app.include_router(health.router)
