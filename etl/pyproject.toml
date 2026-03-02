@@ -13,6 +13,7 @@ dependencies = [
     "psycopg[binary,pool]>=3.2.0",
     "py7zr>=0.22.0",
     "dbt-postgres>=1.9.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]

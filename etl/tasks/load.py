@@ -35,12 +35,19 @@ def _get_db_dsn() -> str:
     Returns:
         String DSN no formato libpq aceito pelo psycopg3.
     """
+    host = os.getenv("POSTGRES_HOST", "localhost")
+    # Supabase requer SSL; para outros hosts respeitar a variável ou usar 'prefer'
+    sslmode = os.getenv(
+        "POSTGRES_SSLMODE",
+        "require" if "supabase.co" in host else "prefer",
+    )
     return (
-        f"host={os.getenv('POSTGRES_HOST', 'localhost')} "
+        f"host={host} "
         f"port={os.getenv('POSTGRES_PORT', '5432')} "
-        f"dbname={os.getenv('POSTGRES_DB', 'radar_trabalhista')} "
+        f"dbname={os.getenv('POSTGRES_DB', 'postgres')} "
         f"user={os.getenv('POSTGRES_USER', 'postgres')} "
-        f"password={os.getenv('POSTGRES_PASSWORD', '')}"
+        f"password={os.getenv('POSTGRES_PASSWORD', '')} "
+        f"sslmode={sslmode}"
     )
 
 
