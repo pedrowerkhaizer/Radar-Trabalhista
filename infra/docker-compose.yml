@@ -1,24 +1,9 @@
 version: "3.9"
 
-services:
-  postgres:
-    image: timescale/timescaledb:latest-pg16
-    container_name: radar_postgres
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-radar_trabalhista}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+# PostgreSQL de aplicação: Supabase (externo — sem serviço local)
+# Credenciais em ../.env (POSTGRES_HOST, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD)
 
+services:
   redis:
     image: redis:7-alpine
     container_name: radar_redis
@@ -38,11 +23,12 @@ services:
       dockerfile: Dockerfile
     container_name: radar_api
     env_file: ../.env
+    environment:
+      # Docker networking: redis é acessível pelo nome do serviço, não localhost
+      REDIS_URL: redis://redis:6379
     ports:
       - "8000:8000"
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -64,18 +50,33 @@ services:
       api:
         condition: service_healthy
 
+  prefect_postgres:
+    image: postgres:16-alpine
+    container_name: radar_prefect_postgres
+    environment:
+      POSTGRES_DB: prefect
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - prefect_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   prefect:
     image: prefecthq/prefect:2-latest
     container_name: radar_prefect
     environment:
-      PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-radar_trabalhista}
+      PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-changeme}@prefect_postgres:5432/prefect
     ports:
       - "4200:4200"
     depends_on:
-      postgres:
+      prefect_postgres:
         condition: service_healthy
     command: prefect server start --host 0.0.0.0
 
 volumes:
-  postgres_data:
   redis_data:
+  prefect_postgres_data:

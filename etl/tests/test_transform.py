@@ -14,6 +14,14 @@ from pathlib import Path
 import duckdb
 import pytest
 
+from tasks.transform import (
+    AGGREGATION_COLUMNS,
+    AGGREGATION_SQL_CORE,
+    CAGED_SEPARATOR,
+    CSV_MAX_LINE_SIZE,
+    PARQUET_COMPRESSION,
+)
+
 # -------------------------------------------------------------------
 # Helpers para criar CSVs fake compatíveis com o layout do CAGED
 # -------------------------------------------------------------------
@@ -82,11 +90,26 @@ def _make_csv(rows: list[dict], tmp_dir: Path) -> Path:
     return csv_path
 
 
+def _create_caged_view(conn: duckdb.DuckDBPyConnection, csv_path: Path) -> None:
+    """Cria a VIEW `caged` no DuckDB a partir de um CSV fake."""
+    conn.execute(f"""
+        CREATE VIEW caged AS
+        SELECT * FROM read_csv_auto(
+            '{csv_path}',
+            sep='{CAGED_SEPARATOR}',
+            header=true,
+            encoding='latin-1',
+            ignore_errors=true,
+            max_line_size={CSV_MAX_LINE_SIZE}
+        )
+    """)
+
+
 def _run_aggregation(csv_path: Path) -> list[dict]:
     """
-    Executa a mesma SQL de aggregação que transform_caged usa, em memória.
+    Executa AGGREGATION_SQL_CORE (importado de tasks.transform) em memória.
 
-    Isso permite testar a lógica SQL sem chamar a task Prefect (que precisa
+    Permite testar a lógica SQL sem chamar a task Prefect (que precisa
     de contexto de run ativo).
 
     Args:
@@ -97,49 +120,9 @@ def _run_aggregation(csv_path: Path) -> list[dict]:
     """
     conn = duckdb.connect()
     try:
-        conn.execute(f"""
-            CREATE VIEW caged AS
-            SELECT * FROM read_csv_auto(
-                '{csv_path}',
-                sep=';',
-                header=true,
-                encoding='latin-1',
-                ignore_errors=true,
-                max_line_size=131072
-            )
-        """)
-
-        result = conn.execute("""
-            SELECT
-                DATE_TRUNC('month',
-                    MAKE_DATE(
-                        CAST(SUBSTR(CAST("Competência" AS VARCHAR), 1, 4) AS INTEGER),
-                        CAST(SUBSTR(CAST("Competência" AS VARCHAR), 5, 2) AS INTEGER),
-                        1
-                    )
-                )::DATE AS competencia,
-                LPAD(SUBSTR(CAST("IBGE Subclasse" AS VARCHAR), 1, 2), 2, '0') AS cnae2,
-                LPAD(CAST("CBOOcupação2002" AS VARCHAR), 6, '0') AS cbo6,
-                LPAD(CAST("Município" AS VARCHAR), 7, '0') AS cod_municipio,
-                LPAD(CAST("UF" AS VARCHAR), 2, '0') AS uf,
-                CAST("TamEstabLix" AS SMALLINT) AS porte_empresa,
-                SUM(CASE WHEN CAST("TipoMovimentação" AS INTEGER) < 30
-                         THEN 1 ELSE 0 END)::INTEGER AS admissoes,
-                SUM(CASE WHEN CAST("TipoMovimentação" AS INTEGER) >= 30
-                         THEN 1 ELSE 0 END)::INTEGER AS desligamentos,
-                AVG(
-                    CASE WHEN CAST("Salário" AS DOUBLE) > 0
-                         THEN CAST("Salário" AS DOUBLE) END
-                ) AS salario_medio
-            FROM caged
-            WHERE "Competência" IS NOT NULL
-              AND "Município" IS NOT NULL
-            GROUP BY 1, 2, 3, 4, 5, 6
-        """).fetchall()
-
-        columns = ["competencia", "cnae2", "cbo6", "cod_municipio", "uf",
-                   "porte_empresa", "admissoes", "desligamentos", "salario_medio"]
-        return [dict(zip(columns, row)) for row in result]
+        _create_caged_view(conn, csv_path)
+        result = conn.execute(AGGREGATION_SQL_CORE).fetchall()
+        return [dict(zip(AGGREGATION_COLUMNS, row)) for row in result]
     finally:
         conn.close()
 
@@ -250,47 +233,13 @@ def test_transform_output_is_parquet() -> None:
         csv_path = _make_csv(rows, Path(tmp))
         expected_parquet = csv_path.parent / "aggregated.parquet"
 
-        # Replicar a lógica do transform_caged via DuckDB direto (sem Prefect runtime)
         conn = duckdb.connect()
         try:
-            conn.execute(f"""
-                CREATE VIEW caged AS
-                SELECT * FROM read_csv_auto(
-                    '{csv_path}',
-                    sep=';',
-                    header=true,
-                    encoding='latin-1',
-                    ignore_errors=true,
-                    max_line_size=131072
-                )
-            """)
-            conn.execute(f"""
-                COPY (
-                    SELECT
-                        DATE_TRUNC('month',
-                            MAKE_DATE(
-                                CAST(SUBSTR(CAST("Competência" AS VARCHAR), 1, 4) AS INTEGER),
-                                CAST(SUBSTR(CAST("Competência" AS VARCHAR), 5, 2) AS INTEGER),
-                                1
-                            )
-                        )::DATE AS competencia,
-                        LPAD(SUBSTR(CAST("IBGE Subclasse" AS VARCHAR), 1, 2), 2, '0') AS cnae2,
-                        LPAD(CAST("CBOOcupação2002" AS VARCHAR), 6, '0') AS cbo6,
-                        LPAD(CAST("Município" AS VARCHAR), 7, '0') AS cod_municipio,
-                        LPAD(CAST("UF" AS VARCHAR), 2, '0') AS uf,
-                        CAST("TamEstabLix" AS SMALLINT) AS porte_empresa,
-                        SUM(CASE WHEN CAST("TipoMovimentação" AS INTEGER) < 30
-                                 THEN 1 ELSE 0 END)::INTEGER AS admissoes,
-                        SUM(CASE WHEN CAST("TipoMovimentação" AS INTEGER) >= 30
-                                 THEN 1 ELSE 0 END)::INTEGER AS desligamentos,
-                        AVG(CASE WHEN CAST("Salário" AS DOUBLE) > 0
-                                 THEN CAST("Salário" AS DOUBLE) END) AS salario_medio
-                    FROM caged
-                    WHERE "Competência" IS NOT NULL
-                      AND "Município" IS NOT NULL
-                    GROUP BY 1, 2, 3, 4, 5, 6
-                ) TO '{expected_parquet}' (FORMAT PARQUET, COMPRESSION 'zstd')
-            """)
+            _create_caged_view(conn, csv_path)
+            conn.execute(
+                f"COPY ({AGGREGATION_SQL_CORE}) TO '{expected_parquet}'"
+                f" (FORMAT PARQUET, COMPRESSION '{PARQUET_COMPRESSION}')"
+            )
         finally:
             conn.close()
 

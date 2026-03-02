@@ -15,6 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import get_settings
 from db import get_db, get_redis
 from schemas.caged import (
+    CAGEDMapItem,
+    CAGEDMapResponse,
     CAGEDSeriesResponse,
     CAGEDSummaryItem,
     CAGEDSummaryResponse,
@@ -129,6 +131,70 @@ async def get_caged_summary(
         },
     )
 
+    await cache_svc.set(cache_key, response.model_dump(), settings.cache_ttl_caged)
+
+    return response
+
+
+@router.get("/map", response_model=CAGEDMapResponse)
+async def get_caged_map(
+    cnae2: Optional[str] = Query(
+        None, min_length=2, max_length=2, description="CNAE 2 dígitos"
+    ),
+    periodo_inicio: Optional[str] = Query(
+        None, pattern=r"^\d{4}-\d{2}$", description="YYYY-MM"
+    ),
+    periodo_fim: Optional[str] = Query(
+        None, pattern=r"^\d{4}-\d{2}$", description="YYYY-MM"
+    ),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+) -> CAGEDMapResponse:
+    """
+    Saldo por UF — dados para o mapa coroplético do dashboard.
+
+    Agrega admissões, demissões e saldo por UF (código IBGE 2 dígitos).
+    Sem filtro por UF (sempre retorna todas as 27 UFs).
+    Cache: 1h.
+    """
+    cache_key = _make_cache_key(
+        "caged:map",
+        cnae2=cnae2,
+        inicio=periodo_inicio,
+        fim=periodo_fim,
+    )
+    cache_svc = CacheService(redis)
+
+    cached = await cache_svc.get(cache_key)
+    if cached:
+        return CAGEDMapResponse(**cached)
+
+    sql = text("""
+        SELECT
+            uf,
+            SUM(admissoes)::int                     AS admissoes,
+            SUM(desligamentos)::int                 AS desligamentos,
+            SUM(admissoes - desligamentos)::int      AS saldo,
+            ROUND(AVG(salario_medio)::numeric, 2)   AS salario_medio
+        FROM fato_caged
+        WHERE (:cnae2 IS NULL OR cnae2 = :cnae2)
+          AND (:inicio IS NULL OR competencia >= :inicio::date)
+          AND (:fim IS NULL OR competencia <= :fim::date)
+        GROUP BY uf
+        ORDER BY uf
+    """)
+
+    params = {
+        "cnae2": cnae2,
+        "inicio": f"{periodo_inicio}-01" if periodo_inicio else None,
+        "fim": f"{periodo_fim}-01" if periodo_fim else None,
+    }
+
+    result = await db.execute(sql, params)
+    rows = result.mappings().all()
+    data = [CAGEDMapItem(**dict(row)) for row in rows]
+
+    response = CAGEDMapResponse(data=data, total=len(data))
     await cache_svc.set(cache_key, response.model_dump(), settings.cache_ttl_caged)
 
     return response

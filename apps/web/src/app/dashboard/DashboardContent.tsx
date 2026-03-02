@@ -4,13 +4,14 @@ import { KPICard } from "@/components/KPICard"
 import { CAGEDChart } from "@/components/CAGEDChart"
 import { SetorRanking } from "@/components/SetorRanking"
 import { MapaUF } from "@/components/MapaUF"
-import { useCagedSummary, useCagedSeries } from "@/hooks/useCaged"
+import { useCagedSummary, useCagedSeries, useCagedMap } from "@/hooks/useCaged"
 import { useFiltersStore } from "@/store/filters"
 
 export function DashboardContent() {
   const { filters } = useFiltersStore()
   const summaryQuery = useCagedSummary(filters)
   const seriesQuery = useCagedSeries(filters, filters.meses)
+  const mapQuery = useCagedMap(filters)
   const latest = summaryQuery.data?.data?.[0]
   const sparkline = seriesQuery.data?.series?.map((s) => s.saldo) ?? []
 
@@ -80,8 +81,8 @@ export function DashboardContent() {
             Distribuição por UF
           </h2>
           <MapaUF
-            data={summaryQuery.data?.data ?? []}
-            isLoading={summaryQuery.isLoading}
+            data={mapQuery.data?.data ?? []}
+            isLoading={mapQuery.isLoading}
           />
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">

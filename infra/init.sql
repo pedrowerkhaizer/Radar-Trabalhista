@@ -1,7 +1,7 @@
--- Enable TimescaleDB extension
-CREATE EXTENSION IF NOT EXISTS timescaledb;
+-- NOTA: TimescaleDB removido — não disponível no Supabase PG17.
+-- Tabela regular com índices otimizados para queries de range por data.
 
--- Fatos CAGED (particionada por ano-mês)
+-- Fatos CAGED
 CREATE TABLE IF NOT EXISTS fato_caged (
   competencia        DATE          NOT NULL,   -- 2025-01-01
   cnae2             CHAR(2)       NOT NULL,
@@ -14,9 +14,6 @@ CREATE TABLE IF NOT EXISTS fato_caged (
   salario_medio     NUMERIC(10,2),
   PRIMARY KEY (competencia, cnae2, cbo6, cod_municipio)
 );
-
--- Convert to hypertable for TimescaleDB optimizations
-SELECT create_hypertable('fato_caged', 'competencia', if_not_exists => TRUE);
 
 -- Indexes for dashboard queries
 CREATE INDEX IF NOT EXISTS idx_fato_caged_cnae2 ON fato_caged (competencia, cnae2);

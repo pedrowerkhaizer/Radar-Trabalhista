@@ -3,10 +3,10 @@
 // O componente real está em MapaUFInner.tsx
 import dynamic from "next/dynamic"
 import { Skeleton } from "@/components/ui/skeleton"
-import type { CAGEDSummaryItem } from "@/lib/types"
+import type { CAGEDMapItem } from "@/lib/types"
 
 export interface MapaUFProps {
-  data: CAGEDSummaryItem[]
+  data: CAGEDMapItem[]
   isLoading?: boolean
 }
 

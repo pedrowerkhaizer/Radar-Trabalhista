@@ -19,6 +19,19 @@ export interface CAGEDSeriesResponse {
   uf: string | null
 }
 
+export interface CAGEDMapItem {
+  uf: string  // código IBGE 2 dígitos (ex: "35" para SP)
+  admissoes: number
+  desligamentos: number
+  saldo: number
+  salario_medio: number | null
+}
+
+export interface CAGEDMapResponse {
+  data: CAGEDMapItem[]
+  total: number
+}
+
 export interface CBOItem {
   cbo6: string
   descricao: string

@@ -1,6 +1,6 @@
 """Task: Download streaming do CAGED do PDET/MTE."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
@@ -100,6 +100,6 @@ def _detect_latest_competencia() -> str:
     Returns:
         Competência no formato "YYYY-MM".
     """
-    today = datetime.now()
+    today = datetime.now(timezone.utc)
     candidate = today.replace(day=1) - timedelta(days=1)
     return candidate.strftime("%Y-%m")

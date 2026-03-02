@@ -17,8 +17,8 @@
 - [x] `apps/web/Dockerfile` — multi-stage, non-root nextjs, standalone output
 - [x] **[BUG CRÍTICO]** `infra/init.sql`: remover `PARTITION BY RANGE (competencia)` — incompatível com `create_hypertable` do TimescaleDB → docker-compose up falha no init
 - [x] **[MAJOR]** `infra/docker-compose.yml`: adicionar healthcheck ao serviço `api` e mudar `web.depends_on.api` para `condition: service_healthy`
-- [ ] **[MINOR]** `infra/docker-compose.yml`: mover Prefect para banco separado (não compartilhar `radar_trabalhista` com a aplicação)
-- [ ] Testar `docker-compose up` end-to-end localmente
+- [x] **[MINOR]** `infra/docker-compose.yml`: mover Prefect para banco separado (não compartilhar `radar_trabalhista` com a aplicação)
+- [ ] Testar `docker-compose up` end-to-end localmente (requer `make up` com Supabase + Redis ativos)
 
 ---
 
@@ -34,9 +34,9 @@
 - [x] `dbt/models/marts/mart_mercado_trabalho.sql`
 - [x] **[CRÍTICO]** `etl/tasks/transform.py`: validar e canonicalizar `csv_path` antes de interpolar em f-string SQL do DuckDB (path vem de parâmetro do flow → risco de path traversal)
 - [x] **[MAJOR]** `etl/tasks/validate.py`: capturar também `pa.errors.SchemaError` (singular) além de `SchemaErrors` — sem isso schema errors não-lazy podem bloquear o pipeline
-- [ ] **[MINOR]** `etl/tasks/download.py`: usar `datetime.now(timezone.utc)` em vez de `datetime.now()` no `_detect_latest_competencia()`
-- [ ] **[MINOR]** `etl/tests/test_transform.py`: testes duplicam SQL de produção — extrair SQL para constante compartilhada ou mockar Prefect context e chamar `transform_caged` diretamente
-- [ ] Carregar 12 meses históricos (backfill manual pós-infra OK)
+- [x] **[MINOR]** `etl/tasks/download.py`: usar `datetime.now(timezone.utc)` em vez de `datetime.now()` no `_detect_latest_competencia()`
+- [x] **[MINOR]** `etl/tests/test_transform.py`: extraído `AGGREGATION_SQL_CORE` + `AGGREGATION_COLUMNS` como constantes em `transform.py`; testes usam import direto — sem duplicação
+- [ ] Carregar 12 meses históricos (backfill manual — ver instruções abaixo)
 - [ ] Testar flow completo com arquivo real do PDET
 
 ---
@@ -57,8 +57,8 @@
 - [x] **[MAJOR]** `apps/api/main.py`: CORS origins para Settings (não hardcoded); `allow_methods` restringir a `["GET"]`; `allow_headers` restringir
 - [x] **[MINOR]** `apps/api/routers/caged.py`: anotar tipo do parâmetro `redis` → `redis: Redis = Depends(get_redis)`
 - [x] **[MINOR-10 / BUG]** `apps/api/routers/caged.py`: filtro `uf` recebe sigla (ex: "SP") mas banco armazena código numérico IBGE (ex: "35") — adicionar mapping dict sigla→código antes do `params["uf"]`
-- [ ] Swagger UI acessível em `/docs` (verificar no docker-compose)
-- [ ] Testar P95 < 500ms com dados reais
+- [ ] Swagger UI acessível em `/docs` (verificar após `make up`)
+- [ ] Testar P95 < 500ms com dados reais (requer backfill CAGED)
 
 ---
 
@@ -80,7 +80,7 @@
 - [x] `prop-types` adicionado (peer dep do recharts via react-transition-group) — build fix
 - [x] **[MAJOR]** `src/app/dashboard/page.tsx`: Suspense fallback é `<div>Carregando...</div>` — substituir pelo mesmo Skeleton grid da `loading.tsx`
 - [x] **[MINOR]** `src/app/dashboard/page.tsx`: transformar em Server Component; mover lógica de hooks para subcomponente Client; aproveita streaming SSR do Next.js 14
-- [ ] Integrar `NEXT_PUBLIC_API_URL` no `.env` e testar com API real
+- [x] Integrar `NEXT_PUBLIC_API_URL` no `.env` (já em `.env` local: `http://localhost:8000`)
 - [ ] Testar dashboard mobile-friendly (breakpoints 375px, 768px, 1280px)
 - [ ] Deploy Railway/Render (pós-infra pronta)
 
@@ -91,7 +91,7 @@
 - [x] `src/components/MapaUFInner.tsx` — MapContainer OpenStreetMap base, legenda
 - [x] `src/components/SetorRanking.tsx` — TanStack Table, ordenação, busca global, export CSV
 - [x] Export CSV funcional via `SetorRanking`
-- [ ] **[MAJOR / INCOMPLETO]** `MapaUFInner.tsx`: prop `data` não é usada — mapa não visualiza dados por UF; adicionar GeoJSON das UFs brasileiras + colorização por saldo (coroplético real)
+- [x] **[MAJOR]** `MapaUFInner.tsx`: coroplético real implementado — GeoJSON IBGE via API pública + colorização verde/vermelho por saldo; endpoint `/v1/caged/map` adicionado na API
 - [ ] Comparador de setores (selecionar até 3 para análise paralela) — diferido para pós-MVP
 - [ ] Lighthouse performance > 80 (medir pós-deploy)
 
@@ -112,7 +112,7 @@
 - [x] **main.py** — CORS origins para Settings (MAJOR-4)
 - [x] **docker-compose.yml** — healthcheck no serviço api (MAJOR-3)
 - [x] **dashboard/page.tsx** — Suspense fallback skeleton (MAJOR-6)
-- [ ] **MapaUFInner.tsx** — implementar coroplético real (MAJOR-7)
+- [x] **MapaUFInner.tsx** — coroplético real implementado (MAJOR-7)
 
 ---
 

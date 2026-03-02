@@ -26,6 +26,21 @@ class CAGEDSeriesResponse(BaseModel):
     uf: Optional[str] = None
 
 
+class CAGEDMapItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    uf: str  # código IBGE 2 dígitos (ex: "35" para SP)
+    admissoes: int
+    desligamentos: int
+    saldo: int
+    salario_medio: Optional[float] = None
+
+
+class CAGEDMapResponse(BaseModel):
+    data: list[CAGEDMapItem]
+    total: int
+
+
 class CBOItem(BaseModel):
     cbo6: str
     descricao: str

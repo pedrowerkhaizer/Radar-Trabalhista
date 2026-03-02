@@ -16,6 +16,42 @@ PARQUET_COMPRESSION = "zstd"
 # Tamanho máximo de linha CSV (131072 = 128KB; linhas do CAGED são < 1KB)
 CSV_MAX_LINE_SIZE = 131_072
 
+# Colunas de saída da aggregação — mantidas em sync com AGGREGATION_SQL_CORE
+AGGREGATION_COLUMNS = [
+    "competencia", "cnae2", "cbo6", "cod_municipio",
+    "uf", "porte_empresa", "admissoes", "desligamentos", "salario_medio",
+]
+
+# SQL de aggregação principal — extraído como constante para ser reutilizado nos testes.
+# Referencia a VIEW `caged` que deve ser criada antes da execução.
+AGGREGATION_SQL_CORE = f"""
+    SELECT
+        DATE_TRUNC('month',
+            MAKE_DATE(
+                CAST(SUBSTR(CAST("Competência" AS VARCHAR), 1, 4) AS INTEGER),
+                CAST(SUBSTR(CAST("Competência" AS VARCHAR), 5, 2) AS INTEGER),
+                1
+            )
+        )::DATE AS competencia,
+        LPAD(SUBSTR(CAST("IBGE Subclasse" AS VARCHAR), 1, 2), 2, '0') AS cnae2,
+        LPAD(CAST("CBOOcupação2002" AS VARCHAR), 6, '0') AS cbo6,
+        LPAD(CAST("Município" AS VARCHAR), 7, '0') AS cod_municipio,
+        LPAD(CAST("UF" AS VARCHAR), 2, '0') AS uf,
+        CAST("TamEstabLix" AS SMALLINT) AS porte_empresa,
+        SUM(CASE WHEN CAST("TipoMovimentação" AS INTEGER) < {ADMISSAO_THRESHOLD}
+                 THEN 1 ELSE 0 END)::INTEGER AS admissoes,
+        SUM(CASE WHEN CAST("TipoMovimentação" AS INTEGER) >= {ADMISSAO_THRESHOLD}
+                 THEN 1 ELSE 0 END)::INTEGER AS desligamentos,
+        AVG(
+            CASE WHEN CAST("Salário" AS DOUBLE) > 0
+                 THEN CAST("Salário" AS DOUBLE) END
+        ) AS salario_medio
+    FROM caged
+    WHERE "Competência" IS NOT NULL
+      AND "Município" IS NOT NULL
+    GROUP BY 1, 2, 3, 4, 5, 6
+"""
+
 
 @task(name="transform-caged")
 def transform_caged(csv_path: Path, competencia: str | None = None) -> Path:
@@ -76,41 +112,11 @@ def transform_caged(csv_path: Path, competencia: str | None = None) -> Path:
         cols = [c[0] for c in conn.execute("DESCRIBE caged").fetchall()]
         logger.debug(f"Colunas detectadas pelo DuckDB: {cols}")
 
-        # Aggregação principal:
-        # - cnae2: primeiros 2 dígitos do IBGE Subclasse (7 dígitos → divisão CNAE)
-        # - cbo6: CBOOcupação2002 com zero-padding à esquerda até 6 dígitos
-        # - cod_municipio: código IBGE 7 dígitos com zero-padding
-        # - uf: código UF 2 dígitos com zero-padding
-        # - salario_medio: excluir Salário=0 (registros sem remuneração declarada)
-        conn.execute(f"""
-            COPY (
-                SELECT
-                    DATE_TRUNC('month',
-                        MAKE_DATE(
-                            CAST(SUBSTR(CAST("Competência" AS VARCHAR), 1, 4) AS INTEGER),
-                            CAST(SUBSTR(CAST("Competência" AS VARCHAR), 5, 2) AS INTEGER),
-                            1
-                        )
-                    )::DATE AS competencia,
-                    LPAD(SUBSTR(CAST("IBGE Subclasse" AS VARCHAR), 1, 2), 2, '0') AS cnae2,
-                    LPAD(CAST("CBOOcupação2002" AS VARCHAR), 6, '0') AS cbo6,
-                    LPAD(CAST("Município" AS VARCHAR), 7, '0') AS cod_municipio,
-                    LPAD(CAST("UF" AS VARCHAR), 2, '0') AS uf,
-                    CAST("TamEstabLix" AS SMALLINT) AS porte_empresa,
-                    SUM(CASE WHEN CAST("TipoMovimentação" AS INTEGER) < {ADMISSAO_THRESHOLD}
-                             THEN 1 ELSE 0 END)::INTEGER AS admissoes,
-                    SUM(CASE WHEN CAST("TipoMovimentação" AS INTEGER) >= {ADMISSAO_THRESHOLD}
-                             THEN 1 ELSE 0 END)::INTEGER AS desligamentos,
-                    AVG(
-                        CASE WHEN CAST("Salário" AS DOUBLE) > 0
-                             THEN CAST("Salário" AS DOUBLE) END
-                    ) AS salario_medio
-                FROM caged
-                WHERE "Competência" IS NOT NULL
-                  AND "Município" IS NOT NULL
-                GROUP BY 1, 2, 3, 4, 5, 6
-            ) TO '{out_path}' (FORMAT PARQUET, COMPRESSION '{PARQUET_COMPRESSION}')
-        """)
+        # Aggregação principal — SQL definido em AGGREGATION_SQL_CORE (módulo-nível)
+        conn.execute(
+            f"COPY ({AGGREGATION_SQL_CORE}) TO '{out_path}'"
+            f" (FORMAT PARQUET, COMPRESSION '{PARQUET_COMPRESSION}')"
+        )
 
         agg_count = conn.execute(
             f"SELECT COUNT(*) FROM read_parquet('{out_path}')"
