@@ -20,7 +20,7 @@ class GeneroResponse(BaseModel):
 
 class EscolaridadeItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    grau_instrucao: int
+    grau_instrucao: int  # SMALLINT 1-9 (MTE codebook)
     admissoes: int
     desligamentos: int
     saldo: int
@@ -45,7 +45,7 @@ class FaixaEtariaResponse(BaseModel):
 
 class CausaDesligamentoItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    causa_desligamento: int
+    causa_desligamento: int  # SMALLINT (11=sem justa causa, 21=pedido, etc.)
     desligamentos: int
     salario_medio: Optional[float] = None
 
@@ -56,7 +56,7 @@ class CausaDesligamentoResponse(BaseModel):
 
 class TempoEmpregoItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    faixa_tempo_emprego: str
+    faixa_tempo_emprego: str  # '0-3m','3-6m','6-12m','1-2a','2-5a','5a+'
     desligamentos: int
 
 
@@ -66,7 +66,7 @@ class TempoEmpregoResponse(BaseModel):
 
 class TipoVinculoItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    tipo_vinculo: int
+    tipo_vinculo: int  # SMALLINT (10=CLT, 40=Aprendiz, etc.)
     admissoes: int
     desligamentos: int
     saldo: int
@@ -78,7 +78,7 @@ class TipoVinculoResponse(BaseModel):
 
 class PorteEmpresaItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    porte_empresa: int
+    porte_empresa: int  # SMALLINT (1=1-10, 2=11-50, 3=51-200, 4=201-500, 5=501-1000, 6=1001+)
     admissoes: int
     desligamentos: int
     saldo: int

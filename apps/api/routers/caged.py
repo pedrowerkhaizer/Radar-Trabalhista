@@ -248,7 +248,9 @@ async def get_caged_series(
             SUM(admissoes - desligamentos)::int AS saldo,
             ROUND(AVG(salario_medio)::numeric, 2) AS salario_medio
         FROM fato_caged
-        WHERE competencia >= (CURRENT_DATE - (:meses * INTERVAL '1 month'))::date
+        WHERE competencia >= (
+            SELECT (MAX(competencia) - INTERVAL '1 month' * :meses)::date FROM fato_caged
+        )
         {extra_clause}
         GROUP BY competencia
         ORDER BY competencia ASC
