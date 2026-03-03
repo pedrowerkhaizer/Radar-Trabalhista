@@ -4,8 +4,5 @@ const nextConfig = {
   // Não usar NODE_ENV porque 'next build' sempre seta NODE_ENV=production
   ...(process.env.NEXT_STANDALONE === 'true' ? { output: 'standalone' } : {}),
   reactStrictMode: true,
-  experimental: {
-    cpus: 1,
-  },
 }
 module.exports = nextConfig
