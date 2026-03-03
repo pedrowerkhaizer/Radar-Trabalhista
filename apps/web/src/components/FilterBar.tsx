@@ -6,7 +6,7 @@ import { CNAE_OPTIONS, UF_OPTIONS } from "@/lib/types"
 import { Filter, X } from "lucide-react"
 
 export function FilterBar() {
-  const { filters, setFilter, resetFilters } = useFiltersStore()
+  const { filters, setFilter, resetFilters, commitFilters } = useFiltersStore()
   const router = useRouter()
 
   useEffect(() => {
@@ -29,6 +29,14 @@ export function FilterBar() {
     router.replace(`?${params.toString()}`, { scroll: false })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, router])
+
+  // Debounce: commit to query keys after 400ms of inactivity
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      commitFilters()
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [filters, commitFilters])
 
   const hasActiveFilters =
     filters.cnae2 || filters.uf || filters.meses !== 12

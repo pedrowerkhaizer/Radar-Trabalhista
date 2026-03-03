@@ -8,7 +8,7 @@ import { useCagedSummary, useCagedSeries, useCagedMap } from "@/hooks/useCaged"
 import { useFiltersStore } from "@/store/filters"
 
 export function DashboardContent() {
-  const { filters } = useFiltersStore()
+  const { committedFilters: filters } = useFiltersStore()
   const summaryQuery = useCagedSummary(filters)
   const seriesQuery = useCagedSeries(filters, filters.meses)
   const mapQuery = useCagedMap(filters)
