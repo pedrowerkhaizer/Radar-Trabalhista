@@ -109,7 +109,7 @@ export function DashboardContent() {
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
           <h2 className="text-sm font-semibold text-slate-900 mb-4">
-            Evolução Mensal
+            Dados por Competência
           </h2>
           <TabelaEvolucaoMensal
             data={summaryQuery.data?.data ?? []}
