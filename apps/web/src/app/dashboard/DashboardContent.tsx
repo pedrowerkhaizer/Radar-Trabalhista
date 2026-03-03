@@ -1,4 +1,5 @@
 "use client"
+import { useMemo } from "react"
 import { FilterBar } from "@/components/FilterBar"
 import { KPICard } from "@/components/KPICard"
 import { CAGEDChart } from "@/components/CAGEDChart"
@@ -12,7 +13,20 @@ export function DashboardContent() {
   const summaryQuery = useCagedSummary(filters)
   const seriesQuery = useCagedSeries(filters, filters.meses)
   const mapQuery = useCagedMap(filters)
-  const latest = summaryQuery.data?.data?.[0]
+  const totals = useMemo(() => {
+    const rows = summaryQuery.data?.data ?? []
+    if (rows.length === 0) return null
+    return {
+      admissoes:     rows.reduce((s, r) => s + r.admissoes, 0),
+      desligamentos: rows.reduce((s, r) => s + r.desligamentos, 0),
+      saldo:         rows.reduce((s, r) => s + r.saldo, 0),
+      // rows are ordered DESC (newest first), so rows[0]=newest, rows[last]=oldest
+      saldoDelta: rows.length > 1
+        ? ((rows[0].saldo - rows[rows.length - 1].saldo) / Math.max(Math.abs(rows[rows.length - 1].saldo), 1)) * 100
+        : 0,
+      salario_medio: rows.reduce((s, r) => s + (r.salario_medio ?? 0), 0) / rows.length,
+    }
+  }, [summaryQuery.data])
   const sparkline = seriesQuery.data?.series?.map((s) => s.saldo) ?? []
 
   return (
@@ -23,34 +37,30 @@ export function DashboardContent() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <KPICard
           title="Saldo Líquido"
-          value={latest?.saldo ?? 0}
-          delta={
-            latest
-              ? (latest.saldo / Math.max(latest.admissoes, 1)) * 100
-              : undefined
-          }
-          trend={latest && latest.saldo >= 0 ? "up" : "down"}
+          value={totals?.saldo ?? 0}
+          delta={totals?.saldoDelta}
+          trend={totals && totals.saldo >= 0 ? "up" : "down"}
           sparklineData={sparkline}
           isLoading={summaryQuery.isLoading}
-          description="Admissões − Demissões"
+          description="Admissões − Demissões no período"
         />
         <KPICard
           title="Admissões"
-          value={latest?.admissoes ?? 0}
+          value={totals?.admissoes ?? 0}
           trend="up"
           isLoading={summaryQuery.isLoading}
           description="Total no período"
         />
         <KPICard
           title="Demissões"
-          value={latest?.desligamentos ?? 0}
+          value={totals?.desligamentos ?? 0}
           trend="down"
           isLoading={summaryQuery.isLoading}
           description="Total no período"
         />
         <KPICard
           title="Salário Médio"
-          value={latest?.salario_medio ?? 0}
+          value={totals?.salario_medio ?? 0}
           prefix="R$ "
           trend="neutral"
           isLoading={summaryQuery.isLoading}
