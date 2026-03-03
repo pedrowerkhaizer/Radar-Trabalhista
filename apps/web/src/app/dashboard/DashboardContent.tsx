@@ -31,13 +31,15 @@ export function DashboardContent() {
         : null,
     }
   }, [summaryQuery.data])
-  const hasPeriodFilter = !!filters.periodo_inicio
   // When period filter active: chart uses summary data sorted ASC (oldest → newest)
   // Otherwise: chart uses rolling series data
-  const chartData = hasPeriodFilter
-    ? [...(summaryQuery.data?.data ?? [])].sort((a, b) => a.competencia.localeCompare(b.competencia))
-    : (seriesQuery.data?.series ?? [])
-  const sparkline = chartData.map((s) => s.saldo)
+  const { hasPeriodFilter, chartData, sparkline } = useMemo(() => {
+    const hasPeriodFilter = !!filters.periodo_inicio || !!filters.periodo_fim
+    const chartData = hasPeriodFilter
+      ? [...(summaryQuery.data?.data ?? [])].sort((a, b) => a.competencia.localeCompare(b.competencia))
+      : (seriesQuery.data?.series ?? [])
+    return { hasPeriodFilter, chartData, sparkline: chartData.map((s) => s.saldo) }
+  }, [filters.periodo_inicio, filters.periodo_fim, summaryQuery.data, seriesQuery.data])
 
   return (
     <div className="space-y-6">
