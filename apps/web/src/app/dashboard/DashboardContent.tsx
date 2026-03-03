@@ -16,15 +16,19 @@ export function DashboardContent() {
   const totals = useMemo(() => {
     const rows = summaryQuery.data?.data ?? []
     if (rows.length === 0) return null
+    const salaryRows = rows.filter((r) => r.salario_medio !== null)
     return {
       admissoes:     rows.reduce((s, r) => s + r.admissoes, 0),
       desligamentos: rows.reduce((s, r) => s + r.desligamentos, 0),
       saldo:         rows.reduce((s, r) => s + r.saldo, 0),
-      // rows are ordered DESC (newest first), so rows[0]=newest, rows[last]=oldest
+      // saldoDelta: last month vs previous month (recent trend direction)
+      // rows[0]=newest month, rows[1]=previous month (DESC order)
       saldoDelta: rows.length > 1
-        ? ((rows[0].saldo - rows[rows.length - 1].saldo) / Math.max(Math.abs(rows[rows.length - 1].saldo), 1)) * 100
+        ? ((rows[0].saldo - rows[1].saldo) / Math.max(Math.abs(rows[1].saldo), 1)) * 100
         : 0,
-      salario_medio: rows.reduce((s, r) => s + (r.salario_medio ?? 0), 0) / rows.length,
+      salario_medio: salaryRows.length > 0
+        ? salaryRows.reduce((s, r) => s + r.salario_medio!, 0) / salaryRows.length
+        : null,
     }
   }, [summaryQuery.data])
   const sparkline = seriesQuery.data?.series?.map((s) => s.saldo) ?? []
