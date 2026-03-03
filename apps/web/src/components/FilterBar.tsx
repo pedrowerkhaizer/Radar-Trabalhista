@@ -6,29 +6,30 @@ import { CNAE_OPTIONS, UF_OPTIONS } from "@/lib/types"
 import { Filter, X } from "lucide-react"
 
 export function FilterBar() {
-  const { filters, setFilter, resetFilters, commitFilters } = useFiltersStore()
+  const { filters, setFilter, resetFilters, commitFilters, committedFilters } = useFiltersStore()
   const router = useRouter()
 
+  // URL reflects committed (debounced) filters so shared links always match queried data
   useEffect(() => {
     const params = new URLSearchParams()
-    if (filters.cnae2) {
-      params.set("cnae2", filters.cnae2)
+    if (committedFilters.cnae2) {
+      params.set("cnae2", committedFilters.cnae2)
     } else {
       params.delete("cnae2")
     }
-    if (filters.uf) {
-      params.set("uf", filters.uf)
+    if (committedFilters.uf) {
+      params.set("uf", committedFilters.uf)
     } else {
       params.delete("uf")
     }
-    if (filters.meses !== 12) {
-      params.set("meses", String(filters.meses))
+    if (committedFilters.meses !== 12) {
+      params.set("meses", String(committedFilters.meses))
     } else {
       params.delete("meses")
     }
     router.replace(`?${params.toString()}`, { scroll: false })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, router])
+  }, [committedFilters, router])
 
   // Debounce: commit to query keys after 400ms of inactivity
   useEffect(() => {
