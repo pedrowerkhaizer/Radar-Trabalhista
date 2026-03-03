@@ -31,7 +31,13 @@ export function DashboardContent() {
         : null,
     }
   }, [summaryQuery.data])
-  const sparkline = seriesQuery.data?.series?.map((s) => s.saldo) ?? []
+  const hasPeriodFilter = !!filters.periodo_inicio
+  // When period filter active: chart uses summary data sorted ASC (oldest → newest)
+  // Otherwise: chart uses rolling series data
+  const chartData = hasPeriodFilter
+    ? [...(summaryQuery.data?.data ?? [])].sort((a, b) => a.competencia.localeCompare(b.competencia))
+    : (seriesQuery.data?.series ?? [])
+  const sparkline = chartData.map((s) => s.saldo)
 
   return (
     <div className="space-y-6">
@@ -83,8 +89,8 @@ export function DashboardContent() {
           </div>
         </div>
         <CAGEDChart
-          data={seriesQuery.data?.series ?? []}
-          isLoading={seriesQuery.isLoading}
+          data={chartData}
+          isLoading={hasPeriodFilter ? summaryQuery.isLoading : seriesQuery.isLoading}
         />
       </div>
 

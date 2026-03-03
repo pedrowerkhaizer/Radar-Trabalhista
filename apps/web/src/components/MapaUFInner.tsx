@@ -44,7 +44,7 @@ export default function MapaUFInner({ data, isLoading }: MapaUFProps) {
   const saldoByUF: Record<string, number> = {}
   let maxAbs = 0
   for (const item of data) {
-    saldoByUF[item.uf] = item.saldo
+    saldoByUF[String(item.uf)] = item.saldo
     if (Math.abs(item.saldo) > maxAbs) maxAbs = Math.abs(item.saldo)
   }
 
