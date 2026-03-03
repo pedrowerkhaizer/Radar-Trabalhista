@@ -3,7 +3,7 @@ import { useMemo } from "react"
 import { FilterBar } from "@/components/FilterBar"
 import { KPICard } from "@/components/KPICard"
 import { CAGEDChart } from "@/components/CAGEDChart"
-import { SetorRanking } from "@/components/SetorRanking"
+import { TabelaEvolucaoMensal } from "@/components/TabelaEvolucaoMensal"
 import { MapaUF } from "@/components/MapaUF"
 import { useCagedSummary, useCagedSeries, useCagedMap } from "@/hooks/useCaged"
 import { useFiltersStore } from "@/store/filters"
@@ -109,9 +109,9 @@ export function DashboardContent() {
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
           <h2 className="text-sm font-semibold text-slate-900 mb-4">
-            Ranking por Competência
+            Evolução Mensal
           </h2>
-          <SetorRanking
+          <TabelaEvolucaoMensal
             data={summaryQuery.data?.data ?? []}
             isLoading={summaryQuery.isLoading}
           />
