@@ -108,7 +108,7 @@ SELECT
     LPAD(CAST(cbo_2002 AS STRING), 6, '0')                                  AS cbo6,
     LPAD(CAST(id_municipio AS STRING), 7, '0')                              AS cod_municipio,
     sigla_uf,
-    CAST(tamanho_estabelecimento_jan AS INT64)                               AS porte_empresa,
+    CAST(tamanho_estabelecimento_janeiro AS INT64)                           AS porte_empresa,
     COUNTIF(saldo_movimentacao > 0)                                          AS admissoes,
     COUNTIF(saldo_movimentacao < 0)                                          AS desligamentos,
     AVG(IF(salario_mensal > 0, salario_mensal, NULL))                        AS salario_medio
