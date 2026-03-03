@@ -11,6 +11,10 @@ import {
   Code2,
   Settings,
   Search,
+  Users,
+  RefreshCw,
+  Briefcase,
+  Factory,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -20,6 +24,15 @@ const navSections = [
     items: [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { label: "Mercado", href: "/dashboard/mercado", icon: TrendingUp },
+    ],
+  },
+  {
+    title: "ANÁLISE",
+    items: [
+      { label: "Demográfico", href: "/dashboard/demografico", icon: Users },
+      { label: "Rotatividade", href: "/dashboard/rotatividade", icon: RefreshCw },
+      { label: "Ocupações", href: "/dashboard/ocupacoes", icon: Briefcase },
+      { label: "Perspectiva Empresa", href: "/dashboard/empresa", icon: Factory },
     ],
   },
   {

@@ -52,3 +52,56 @@ export async function fetchCBOOccupations(cnae2?: string): Promise<CBOItem[]> {
   const res = await fetchWithTimeout(`${API_BASE}/v1/cbo/occupations${qs}`)
   return res.json()
 }
+
+// ── Analytics fetch functions ─────────────────────────────────────────────────
+
+import type {
+  GeneroItem, EscolaridadeItem, FaixaEtariaItem,
+  CausaDesligamentoItem, TempoEmpregoItem, TipoVinculoItem,
+  PorteEmpresaItem, OcupacaoItem,
+} from "./types"
+
+function buildAnalyticsParams(filters: Partial<FilterState>): string {
+  const params = new URLSearchParams()
+  if (filters.cnae2) params.set("cnae2", filters.cnae2)
+  if (filters.uf) params.set("uf", filters.uf)
+  if (filters.periodo_inicio) params.set("periodo_inicio", filters.periodo_inicio)
+  if (filters.periodo_fim) params.set("periodo_fim", filters.periodo_fim)
+  return params.toString()
+}
+
+async function fetchAnalytics<T>(path: string, filters: Partial<FilterState>): Promise<T> {
+  const qs = buildAnalyticsParams(filters)
+  const res = await fetchWithTimeout(`${API_BASE}/v1/analytics/${path}${qs ? `?${qs}` : ""}`)
+  return res.json()
+}
+
+export const fetchDemograficoGenero = (f: Partial<FilterState>) =>
+  fetchAnalytics<{ data: GeneroItem[]; total: number }>("demografico/genero", f)
+
+export const fetchDemograficoEscolaridade = (f: Partial<FilterState>) =>
+  fetchAnalytics<{ data: EscolaridadeItem[] }>("demografico/escolaridade", f)
+
+export const fetchDemograficoFaixaEtaria = (f: Partial<FilterState>) =>
+  fetchAnalytics<{ data: FaixaEtariaItem[] }>("demografico/faixa-etaria", f)
+
+export const fetchRotatividadeCausas = (f: Partial<FilterState>) =>
+  fetchAnalytics<{ data: CausaDesligamentoItem[] }>("rotatividade/causas", f)
+
+export const fetchRotatividadeTempoEmprego = (f: Partial<FilterState>) =>
+  fetchAnalytics<{ data: TempoEmpregoItem[] }>("rotatividade/tempo-emprego", f)
+
+export const fetchRotatividadeTipoVinculo = (f: Partial<FilterState>) =>
+  fetchAnalytics<{ data: TipoVinculoItem[] }>("rotatividade/tipo-vinculo", f)
+
+export const fetchOcupacoesRanking = (f: Partial<FilterState>) =>
+  fetchAnalytics<{ data: OcupacaoItem[]; total: number }>("ocupacoes/ranking", f)
+
+export const fetchOcupacoesSalario = (f: Partial<FilterState>) =>
+  fetchAnalytics<{ data: OcupacaoItem[]; total: number }>("ocupacoes/salario", f)
+
+export const fetchEmpresaPorte = (f: Partial<FilterState>) =>
+  fetchAnalytics<{ data: PorteEmpresaItem[] }>("empresa/porte", f)
+
+export const fetchEmpresaTipoVinculo = (f: Partial<FilterState>) =>
+  fetchAnalytics<{ data: TipoVinculoItem[] }>("empresa/tipo-vinculo", f)

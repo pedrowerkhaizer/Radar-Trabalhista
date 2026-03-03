@@ -88,3 +88,90 @@ export const UF_OPTIONS = [
   { value: "SE", label: "Sergipe" }, { value: "SP", label: "São Paulo" },
   { value: "TO", label: "Tocantins" },
 ] as const
+
+// ── Analytics types ───────────────────────────────────────────────────────────
+
+export interface GeneroItem {
+  competencia: string
+  sexo: string  // "1"=M, "3"=F
+  admissoes: number
+  desligamentos: number
+  saldo: number
+  salario_medio: number | null
+}
+
+export interface EscolaridadeItem {
+  grau_instrucao: number
+  admissoes: number
+  desligamentos: number
+  saldo: number
+  salario_medio: number | null
+}
+
+export interface FaixaEtariaItem {
+  faixa_etaria: string
+  admissoes: number
+  desligamentos: number
+  saldo: number
+}
+
+export interface CausaDesligamentoItem {
+  causa_desligamento: number
+  desligamentos: number
+  salario_medio: number | null
+}
+
+export interface TempoEmpregoItem {
+  faixa_tempo_emprego: string
+  desligamentos: number
+}
+
+export interface TipoVinculoItem {
+  tipo_vinculo: number
+  admissoes: number
+  desligamentos: number
+  saldo: number
+}
+
+export interface PorteEmpresaItem {
+  porte_empresa: number
+  admissoes: number
+  desligamentos: number
+  saldo: number
+  salario_medio: number | null
+}
+
+export interface OcupacaoItem {
+  cbo_grupo: string
+  descricao: string | null
+  admissoes: number
+  desligamentos: number
+  saldo: number
+  salario_medio: number | null
+}
+
+// Labels for coded fields
+export const SEXO_LABELS: Record<string, string> = {
+  "1": "Masculino", "3": "Feminino", "9": "Ignorado",
+}
+
+export const GRAU_INSTRUCAO_LABELS: Record<number, string> = {
+  1: "Analfabeto", 2: "Fundamental incompleto", 3: "Fundamental completo",
+  4: "Médio incompleto", 5: "Médio completo", 6: "Superior incompleto",
+  7: "Superior completo", 8: "Mestrado", 9: "Doutorado",
+}
+
+export const CAUSA_DESLIG_LABELS: Record<number, string> = {
+  11: "Sem justa causa", 12: "Com justa causa", 21: "A pedido",
+  22: "Aposentadoria", 23: "Transferência", 31: "Término contrato",
+  40: "Falecimento", 99: "Outros",
+}
+
+export const PORTE_LABELS: Record<number, string> = {
+  1: "1–10", 2: "11–50", 3: "51–200", 4: "201–500", 5: "501–1000", 6: "1001+",
+}
+
+export const TIPO_VINCULO_LABELS: Record<number, string> = {
+  10: "CLT", 15: "CLT doméstico", 20: "Estatutário", 25: "Temporário",
+  30: "Avulso", 35: "Aprendiz", 40: "Menor aprendiz", 55: "Outros",
+}
