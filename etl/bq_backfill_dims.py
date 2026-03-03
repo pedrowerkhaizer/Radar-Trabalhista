@@ -62,7 +62,7 @@ SELECT
         WHEN CAST(idade AS INT64) < 55  THEN '45-54'
         ELSE '55+'
     END                                                                       AS faixa_etaria,
-    CAST(grau_instrucao_apos_2005 AS INT64)                                   AS grau_instrucao,
+    SAFE_CAST(grau_instrucao AS INT64)                                        AS grau_instrucao,
     COUNTIF(saldo_movimentacao > 0)                                           AS admissoes,
     COUNTIF(saldo_movimentacao < 0)                                           AS desligamentos,
     AVG(IF(salario_mensal > 0 AND salario_mensal < 100000, salario_mensal, NULL)) AS salario_medio
