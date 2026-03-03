@@ -74,8 +74,15 @@ def _get_db_dsn() -> str:
 # Discovery
 # ──────────────────────────────────────────────
 
-def cmd_discover(client: bigquery.Client) -> None:
-    """Lista tabelas do dataset e mostra sample de colunas."""
+def cmd_discover(client: bigquery.Client, schema_table: str | None = None) -> None:
+    """Lista tabelas do dataset. Com --schema=TABELA mostra todas as colunas."""
+    if schema_table:
+        tbl = client.get_table(f"{BD_DATASET}.{schema_table}")
+        print(f"\n=== Schema de {schema_table} ({tbl.num_rows:,} linhas) ===\n")
+        for f in tbl.schema:
+            print(f"  {f.name:45s} {f.field_type}")
+        return
+
     print(f"\n=== Tabelas em {BD_DATASET} ===\n")
     tables = list(client.list_tables(BD_DATASET))
     if not tables:
@@ -102,10 +109,10 @@ SELECT
     LPAD(CAST(id_municipio AS STRING), 7, '0')                              AS cod_municipio,
     sigla_uf,
     CAST(tamanho_estabelecimento_jan AS INT64)                               AS porte_empresa,
-    COUNTIF(tipo_movimentacao = '10' OR CAST(tipo_movimentacao AS INT64) < 30) AS admissoes,
-    COUNTIF(tipo_movimentacao = '20' OR CAST(tipo_movimentacao AS INT64) >= 30) AS desligamentos,
+    COUNTIF(saldo_movimentacao > 0)                                          AS admissoes,
+    COUNTIF(saldo_movimentacao < 0)                                          AS desligamentos,
     AVG(IF(salario_mensal > 0, salario_mensal, NULL))                        AS salario_medio
-FROM `basedosdados.br_me_caged.microdados_movimentacoes`
+FROM `basedosdados.br_me_caged.microdados_movimentacao`
 WHERE ano = @ano AND mes = @mes
   AND id_municipio IS NOT NULL
 GROUP BY 1, 2, 3, 4, 5, 6
@@ -226,10 +233,14 @@ def main() -> None:
              for a in sys.argv[1:] if a.startswith("--")}
 
     if "discover" in flags:
-        cmd_discover(client)
+        cmd_discover(client, schema_table=flags.get("schema"))
         return
 
-    table = flags.get("table", "microdados_movimentacoes")
+    if "schema" in flags:
+        cmd_discover(client, schema_table=flags["schema"])
+        return
+
+    table = flags.get("table", "microdados_movimentacao")
 
     if not args:
         print("Uso: uv run python bq_backfill.py [--discover] [--table=NOME] ANO-MES [ANO-MES_FIM]")
