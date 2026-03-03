@@ -50,6 +50,31 @@ def _uf_to_ibge(uf: Optional[str]) -> Optional[str]:
     return _UF_IBGE.get(uf.upper())
 
 
+def _build_where(
+    cnae2: Optional[str] = None,
+    uf: Optional[str] = None,
+    inicio: Optional[str] = None,
+    fim: Optional[str] = None,
+) -> tuple[str, dict]:
+    """Constrói cláusula WHERE dinamicamente para evitar AmbiguousParameterError no asyncpg."""
+    clauses: list[str] = []
+    params: dict = {}
+    if cnae2:
+        clauses.append("cnae2 = :cnae2")
+        params["cnae2"] = cnae2
+    if uf:
+        clauses.append("uf = :uf")
+        params["uf"] = uf
+    if inicio:
+        clauses.append("competencia >= CAST(:inicio AS date)")
+        params["inicio"] = inicio
+    if fim:
+        clauses.append("competencia <= CAST(:fim AS date)")
+        params["fim"] = fim
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    return where, params
+
+
 @router.get("/summary", response_model=CAGEDSummaryResponse)
 async def get_caged_summary(
     cnae2: Optional[str] = Query(
@@ -88,7 +113,14 @@ async def get_caged_summary(
     if cached:
         return CAGEDSummaryResponse(**cached)
 
-    sql = text("""
+    where, params = _build_where(
+        cnae2=cnae2,
+        uf=uf_ibge,
+        inicio=f"{periodo_inicio}-01" if periodo_inicio else None,
+        fim=f"{periodo_fim}-01" if periodo_fim else None,
+    )
+
+    sql = text(f"""
         SELECT
             TO_CHAR(competencia, 'YYYY-MM') AS competencia,
             SUM(admissoes)::int              AS admissoes,
@@ -96,21 +128,11 @@ async def get_caged_summary(
             SUM(admissoes - desligamentos)::int AS saldo,
             ROUND(AVG(salario_medio)::numeric, 2) AS salario_medio
         FROM fato_caged
-        WHERE (:cnae2 IS NULL OR cnae2 = :cnae2)
-          AND (:uf IS NULL OR uf = :uf)
-          AND (:inicio IS NULL OR competencia >= :inicio::date)
-          AND (:fim IS NULL OR competencia <= :fim::date)
+        {where}
         GROUP BY competencia
         ORDER BY competencia DESC
         LIMIT 60
     """)
-
-    params = {
-        "cnae2": cnae2,
-        "uf": uf_ibge,
-        "inicio": f"{periodo_inicio}-01" if periodo_inicio else None,
-        "fim": f"{periodo_fim}-01" if periodo_fim else None,
-    }
 
     result = await db.execute(sql, params)
     rows = result.mappings().all()
@@ -169,7 +191,13 @@ async def get_caged_map(
     if cached:
         return CAGEDMapResponse(**cached)
 
-    sql = text("""
+    where, params = _build_where(
+        cnae2=cnae2,
+        inicio=f"{periodo_inicio}-01" if periodo_inicio else None,
+        fim=f"{periodo_fim}-01" if periodo_fim else None,
+    )
+
+    sql = text(f"""
         SELECT
             uf,
             SUM(admissoes)::int                     AS admissoes,
@@ -177,18 +205,10 @@ async def get_caged_map(
             SUM(admissoes - desligamentos)::int      AS saldo,
             ROUND(AVG(salario_medio)::numeric, 2)   AS salario_medio
         FROM fato_caged
-        WHERE (:cnae2 IS NULL OR cnae2 = :cnae2)
-          AND (:inicio IS NULL OR competencia >= :inicio::date)
-          AND (:fim IS NULL OR competencia <= :fim::date)
+        {where}
         GROUP BY uf
         ORDER BY uf
     """)
-
-    params = {
-        "cnae2": cnae2,
-        "inicio": f"{periodo_inicio}-01" if periodo_inicio else None,
-        "fim": f"{periodo_fim}-01" if periodo_fim else None,
-    }
 
     result = await db.execute(sql, params)
     rows = result.mappings().all()
@@ -217,7 +237,10 @@ async def get_caged_series(
     if cached:
         return CAGEDSeriesResponse(**cached)
 
-    sql = text("""
+    extra_where, extra_params = _build_where(cnae2=cnae2, uf=uf_ibge)
+    extra_clause = ("AND " + extra_where.replace("WHERE ", "")) if extra_where else ""
+
+    sql = text(f"""
         SELECT
             TO_CHAR(competencia, 'YYYY-MM') AS competencia,
             SUM(admissoes)::int              AS admissoes,
@@ -226,17 +249,12 @@ async def get_caged_series(
             ROUND(AVG(salario_medio)::numeric, 2) AS salario_medio
         FROM fato_caged
         WHERE competencia >= (CURRENT_DATE - (:meses * INTERVAL '1 month'))::date
-          AND (:cnae2 IS NULL OR cnae2 = :cnae2)
-          AND (:uf IS NULL OR uf = :uf)
+        {extra_clause}
         GROUP BY competencia
         ORDER BY competencia ASC
     """)
 
-    params = {
-        "meses": meses,
-        "cnae2": cnae2,
-        "uf": uf_ibge,
-    }
+    params = {"meses": meses, **extra_params}
 
     result = await db.execute(sql, params)
     rows = result.mappings().all()

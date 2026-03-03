@@ -62,3 +62,7 @@ secrets/
 # Git worktrees
 .worktrees/
 .worktrees
+
+
+#Utils
+ui moodboard/

@@ -28,12 +28,20 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
+        ssl = "require" if "supabase.co" in self.postgres_host else "prefer"
         return (
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+            f"?ssl={ssl}"
         )
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        # Procura .env na raiz do projeto (../../.env quando rodando de apps/api/)
+        # e também localmente como fallback
+        env_file=["../../.env", "../.env", ".env"],
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
 
 @lru_cache

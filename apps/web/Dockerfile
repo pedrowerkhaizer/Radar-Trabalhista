@@ -17,7 +17,7 @@ COPY --from=deps /app/node_modules ./node_modules
 
 COPY . .
 
-RUN npm run build
+RUN NEXT_STANDALONE=true npm run build
 
 
 # Stage: runner

@@ -1,3 +1,137 @@
+## Produto — Visão Geral
+
+Plataforma de inteligência em mercado de trabalho e compliance trabalhista.
+Três módulos principais:
+- **Módulo 1** — Monitor de Mercado de Trabalho (CAGED/RAIS: admissões, demissões, salário por setor/UF/CBO)
+- **Módulo 2** — Score de Compliance Trabalhista (0–100 por CNPJ, cruzando CNJ + MTE + CAGED + Receita + FGTS)
+- **Módulo 3** — Benchmarking de Turnover Setorial (percentil de rotatividade por setor/UF/porte via CAGED+RAIS)
+- **Módulo 4** — API pública freemium (Free / Pro R$290 / Business R$990)
+
+### 5 Personas (PM gate)
+
+| Persona | Feature principal |
+|---------|------------------|
+| Analista de People Analytics | Dashboard comparativo setor × empresa + Módulo Turnover |
+| HRBP / Diretor de RH | Alertas mensais CAGED + índice de rotatividade |
+| M&A / Due Diligence | Score compliance + histórico CNJ por CNPJ |
+| Gestor de Fornecedores | Monitoramento contínuo de CNPJs + alerta de turnover atípico |
+| Consultor de RH | API + relatórios PDF exportáveis |
+
+### Fontes de dados (escopo PM gate)
+
+CAGED (MTE/PDET), RAIS (MTE/PDET), CNPJ Receita Federal, DataJud/CNJ, Autuações MTE, CBO e CNAE (tabelas estáticas), Municípios/UF (IBGE).
+Qualquer integração fora desta lista está **fora de escopo**.
+
+---
+
+## Stack Tecnológico
+
+| Camada | Tech |
+|--------|------|
+| ETL/Orquestração | Python 3.12 + Prefect 2 |
+| Transformação | Pandas + DuckDB → PostgreSQL |
+| Data Warehouse | PostgreSQL 16 + TimescaleDB |
+| Modelagem DW | dbt Core |
+| API Backend | FastAPI (Python 3.12) + Redis (cache) |
+| Frontend | Next.js 14 (App Router) + TypeScript |
+| UI | shadcn/ui + Tailwind CSS |
+| Gráficos | Recharts + React-Leaflet |
+| PDF | WeasyPrint (server-side) |
+| Auth | OAuth2 Google + JWT (httpOnly cookie) |
+| Infra | Docker Compose → Railway/Render |
+| CI/CD | GitHub Actions |
+
+---
+
+## Estrutura do Repositório
+
+```
+apps/api/                     # FastAPI backend
+  routers/                    # caged.py, compliance.py, turnover.py, auth.py, reports.py
+  services/                   # scoring.py, turnover_benchmark.py, cache.py, pdf.py
+  models/                     # SQLAlchemy ORM models
+  schemas/                    # Pydantic request/response schemas
+apps/web/                     # Next.js 14 frontend
+  app/                        # App Router (layouts, pages, loading)
+  components/                 # KPICard, ScoreGauge, TurnoverGauge, FilterBar, ...
+  hooks/                      # useCaged.ts, useCompliance.ts, useTurnover.ts
+  lib/                        # api-client.ts, auth.ts, utils.ts
+etl/flows/                    # caged_flow.py, rais_flow.py, cnj_flow.py, cnpj_flow.py
+etl/tasks/                    # download.py, validate.py, transform.py, load.py
+dbt/models/staging/           # stg_caged.sql, stg_rais.sql, stg_cnpj.sql
+dbt/models/intermediate/      # int_caged_aggregated.sql, int_turnover_cnpj.sql
+dbt/models/marts/             # mart_mercado_trabalho.sql, mart_compliance.sql, mart_turnover_setorial.sql
+infra/                        # docker-compose.yml, Caddyfile
+docs/ADRs/                    # Architecture Decision Records
+docs/runbooks/                # ETL failure, DB recovery
+```
+
+### Tabelas principais do DW
+
+- `fato_caged` — particionada por ano-mês; grain: (competencia, cnae2, cbo6, municipio)
+- `compliance_score` — score 0–100 por CNPJ com breakdown por componente (JSONB)
+- `mart_turnover_setorial` — percentis p25/p50/p75/p90 por (cnae2, uf, porte, ano_base)
+
+---
+
+## Comandos de Desenvolvimento
+
+```bash
+# Subir todos os serviços
+docker-compose up
+
+# ETL pipeline (Prefect)
+cd etl && prefect deployment run caged-flow/local
+
+# dbt
+cd dbt && dbt run && dbt test
+
+# API local
+cd apps/api && uvicorn main:app --reload
+
+# Frontend
+cd apps/web && npm run dev
+```
+
+---
+
+## Rotas Frontend (Next.js)
+
+| Rota | Render | Auth |
+|------|--------|------|
+| `/` | SSG | Não |
+| `/dashboard` | CSR | Sim |
+| `/setores/[slug]` | SSR | Não (SEO) |
+| `/compliance` | CSR | Sim |
+| `/compliance/[cnpj]` | SSR+CSR | Sim |
+| `/turnover` | CSR | Sim |
+| `/relatorios` | CSR | Pro |
+| `/api-docs` | SSG | Não |
+
+---
+
+## Endpoints API principais
+
+```
+GET  /v1/caged/summary          — resumo CAGED por filtros (Free)
+GET  /v1/caged/series           — série histórica mensal (Free)
+GET  /v1/turnover/benchmark     — percentis de turnover por setor/UF/porte (Free)
+GET  /v1/turnover/{cnpj}        — posição percentil do CNPJ (Pro)
+GET  /v1/compliance/{cnpj}      — score completo (Pro)
+POST /v1/compliance/batch       — score em lote até 100 CNPJs (Business)
+GET  /v1/reports/{setor}/pdf    — relatório PDF de setor (Pro)
+```
+
+---
+
+## Requisitos Não-Funcionais (metas)
+
+- Dashboard: P95 < 2s | API simples: P95 < 500ms | Score CNPJ: < 5s | Turnover benchmark: P95 < 300ms
+- Uptime: >= 99.5% | Usuários simultâneos fase inicial: 200
+- LGPD: apenas dados públicos; nenhum dado de PF armazenado ou exibido
+
+---
+
 ## Papel do Claude neste projeto
 
 Claude atua como **Tech Lead + Product Manager** deste projeto, coordenando agentes de IA desenvolvedores via Linear MCP.
@@ -111,6 +245,39 @@ Feature está FORA do escopo se:
 	6.	Capture Lessons: Update tasks/lessons.md after corrections
 
 ⸻
+
+## Test-Driven Development (TDD) — Regra obrigatória
+
+**Todo desenvolvimento de feature segue TDD. Sem exceção.**
+
+### Fluxo obrigatório
+
+```
+1. Escrever o teste que descreve o comportamento esperado (RED)
+2. Confirmar que o teste falha (prova que o teste é válido)
+3. Implementar o mínimo de código para o teste passar (GREEN)
+4. Refatorar mantendo os testes passando (REFACTOR)
+5. Só marcar a issue como Done quando todos os testes passarem
+```
+
+### Por camada
+
+| Camada | Framework | O que testar |
+|--------|-----------|--------------|
+| API (FastAPI) | pytest + httpx (TestClient) | endpoints, schemas, regras de negócio, rate limiting |
+| Serviços/Score | pytest | cálculo do score, edge cases, componentes individuais |
+| ETL | pytest + fixtures de CSV | download, validação de schema, transformação, carga idempotente |
+| dbt | dbt tests (`not_null`, `unique`, `accepted_values`) | qualidade dos dados nas marts |
+| Frontend | Vitest + Testing Library | componentes, hooks, integração com mock de API |
+
+### Critério de aceite para marcar Done
+- Todos os testes unitários passando
+- Cobertura mínima de 70% nos novos módulos
+- Testes de integração do endpoint/feature passando
+- `dbt test` sem erros nas marts afetadas
+- Nenhum teste existente quebrado pela mudança
+
+---
 
 ## Core Principles
 	•	Simplicity First: Make every change as simple as possible. Impact minimal code.
