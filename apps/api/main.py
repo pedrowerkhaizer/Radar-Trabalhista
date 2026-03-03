@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_settings
-from routers import caged, health, turnover
+from routers import analytics, caged, cbo, health, turnover
 
 settings = get_settings()
 
@@ -47,3 +47,5 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(caged.router, prefix="/v1/caged", tags=["CAGED"])
 app.include_router(turnover.router, prefix="/v1/turnover", tags=["Turnover"])
+app.include_router(cbo.router, prefix="/v1/cbo", tags=["CBO"])
+app.include_router(analytics.router, prefix="/v1/analytics", tags=["Analytics"])
