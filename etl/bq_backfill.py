@@ -107,15 +107,15 @@ SELECT
     LPAD(SUBSTR(CAST(cnae_2_subclasse AS STRING), 1, 2), 2, '0')            AS cnae2,
     LPAD(CAST(cbo_2002 AS STRING), 6, '0')                                  AS cbo6,
     LPAD(CAST(id_municipio AS STRING), 7, '0')                              AS cod_municipio,
-    sigla_uf,
-    CAST(tamanho_estabelecimento_janeiro AS INT64)                           AS porte_empresa,
+    ANY_VALUE(sigla_uf)                                                      AS sigla_uf,
+    NULL                                                                     AS porte_empresa,
     COUNTIF(saldo_movimentacao > 0)                                          AS admissoes,
     COUNTIF(saldo_movimentacao < 0)                                          AS desligamentos,
-    AVG(IF(salario_mensal > 0, salario_mensal, NULL))                        AS salario_medio
+    AVG(IF(salario_mensal > 0 AND salario_mensal < 100000, salario_mensal, NULL)) AS salario_medio
 FROM `basedosdados.br_me_caged.microdados_movimentacao`
 WHERE ano = @ano AND mes = @mes
   AND id_municipio IS NOT NULL
-GROUP BY 1, 2, 3, 4, 5, 6
+GROUP BY 1, 2, 3, 4
 """
 
 # Query para CAGED Antigo (microdados_antigos) — pré-2020, estrutura diferente
@@ -124,16 +124,16 @@ SELECT
     DATE(CAST(ano AS INT64), CAST(mes AS INT64), 1)                         AS competencia,
     LPAD(SUBSTR(CAST(subclasse AS STRING), 1, 2), 2, '0')                   AS cnae2,
     LPAD(CAST(cbo AS STRING), 6, '0')                                       AS cbo6,
-    LPAD(CAST(municipio AS STRING), 7, '0')                                 AS cod_municipio,
-    sigla_uf,
-    CAST(tam_estab AS INT64)                                                 AS porte_empresa,
-    COUNTIF(LOWER(tipo_mov) LIKE '%adm%' OR saldo_movimentacao > 0)          AS admissoes,
-    COUNTIF(LOWER(tipo_mov) LIKE '%desl%' OR saldo_movimentacao < 0)         AS desligamentos,
+    LPAD(CAST(id_municipio AS STRING), 7, '0')                              AS cod_municipio,
+    ANY_VALUE(sigla_uf)                                                      AS sigla_uf,
+    NULL                                                                     AS porte_empresa,
+    COUNTIF(LOWER(tipo_mov) LIKE '%adm%')                                    AS admissoes,
+    COUNTIF(LOWER(tipo_mov) LIKE '%desl%')                                   AS desligamentos,
     AVG(IF(salario > 0, salario, NULL))                                      AS salario_medio
 FROM `basedosdados.br_me_caged.microdados_antigos`
 WHERE ano = @ano AND mes = @mes
-  AND municipio IS NOT NULL
-GROUP BY 1, 2, 3, 4, 5, 6
+  AND id_municipio IS NOT NULL
+GROUP BY 1, 2, 3, 4
 """
 
 FATO_CAGED_COLUMNS = (
@@ -147,7 +147,7 @@ def run_backfill(
     competencias: list[str],
     table: str = "microdados_movimentacoes",
 ) -> None:
-    query_sql = NOVO_CAGED_QUERY if table == "microdados_movimentacoes" else ANTIGO_CAGED_QUERY
+    query_sql = NOVO_CAGED_QUERY if table == "microdados_movimentacao" else ANTIGO_CAGED_QUERY
     dsn = _get_db_dsn()
 
     for comp in competencias:
@@ -157,8 +157,8 @@ def run_backfill(
 
         job_config = bigquery.QueryJobConfig(
             query_parameters=[
-                bigquery.ScalarQueryParameter("ano", "STRING", ano),
-                bigquery.ScalarQueryParameter("mes", "STRING", mes),
+                bigquery.ScalarQueryParameter("ano", "INT64", int(ano)),
+                bigquery.ScalarQueryParameter("mes", "INT64", int(mes)),
             ],
             use_query_cache=True,
         )
@@ -206,7 +206,7 @@ def run_backfill(
                             int(row.porte_empresa) if row.porte_empresa is not None else None,
                             int(row.admissoes or 0),
                             int(row.desligamentos or 0),
-                            float(row.salario_medio) if row.salario_medio is not None else None,
+                            min(float(row.salario_medio), 9999999.99) if row.salario_medio is not None else None,
                         ))
                         loaded += 1
 
