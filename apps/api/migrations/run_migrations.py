@@ -18,7 +18,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Carrega .env da raiz do projeto
-_env_file = Path(__file__).parent.parent.parent / ".env"
+# migrations/ → apps/api/ → apps/ → Radar Trabalhista/
+_env_file = Path(__file__).parent.parent.parent.parent / ".env"
 if _env_file.exists():
     load_dotenv(_env_file)
 
